@@ -20,10 +20,10 @@ class Fatigue_detecting:
         self.OUT_AR_CONSEC_FRAMES_check = 5
         # 闪烁阈值（秒）
         # 眼睛长宽比
-        self.EYE_AR_THRESH = 0.2
+        self.EYE_AR_THRESH = 0.17
         self.EYE_AR_CONSEC_FRAMES = 3
         # 打哈欠长宽比
-        self.MAR_THRESH = 0.5
+        self.MAR_THRESH = 0.7
         self.MOUTH_AR_CONSEC_FRAMES = 3
         # 瞌睡点头
         self.HAR_THRESH = 0.3
@@ -179,6 +179,7 @@ class Fatigue_detecting:
                 mar = self.mouth_aspect_ratio(mouth)
 
                 # 检查是否满足眨眼阈值
+                print(ear)
                 if ear < self.EYE_AR_THRESH:
                     self.COUNTER += 1
                 else:

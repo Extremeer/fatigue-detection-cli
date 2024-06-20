@@ -55,7 +55,7 @@ def receive_frames():
                 frame_queue.put(image)
 
                 # 显示解码后的图像
-                cv2.imshow("1", image)
+                #cv2.imshow("1", image)
                 cv2.waitKey(1)  # 设置适当的等待时间，单位为毫秒
 
                 # 清空图像数据，准备接收下一张图片
@@ -73,11 +73,11 @@ class Fatigue_detecting:
         # 初始化参数和变量
         self.VIDEO_STREAM = 0
         self.CAMERA_STYLE = False
-        self.AR_CONSEC_FRAMES_check = 3
+        self.AR_CONSEC_FRAMES_check = 2
         self.OUT_AR_CONSEC_FRAMES_check = 5
-        self.EYE_AR_THRESH = 0.2
-        self.EYE_AR_CONSEC_FRAMES = 3
-        self.MAR_THRESH = 0.5
+        self.EYE_AR_THRESH = 0.25
+        self.EYE_AR_CONSEC_FRAMES = 2
+        self.MAR_THRESH = 0.7
         self.MOUTH_AR_CONSEC_FRAMES = 3
         self.HAR_THRESH = 0.3
         self.NOD_AR_CONSEC_FRAMES = 5
@@ -181,7 +181,7 @@ class Fatigue_detecting:
                     rightEAR = self.eye_aspect_ratio(rightEye)
                     mar = self.mouth_aspect_ratio(mouth)
                     ear = (leftEAR + rightEAR) / 2.0
-
+                    print(ear)
                     if ear < self.EYE_AR_THRESH:
                         self.COUNTER += 1
                     else:
