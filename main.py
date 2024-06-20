@@ -1,4 +1,4 @@
-# -*- coding: utf-8 -*-
+ # -*- coding: utf-8 -*-
 
 import dlib  # 人脸识别的库dlib
 import cv2  # 图像处理的库OpenCv
@@ -150,6 +150,7 @@ class Fatigue_detecting:
         while self.running:
             # 读取帧
             ret, frame = self.cap.read()
+            flag, im_rd = self.cap.read()
             if not ret:
                 break
 
@@ -202,7 +203,13 @@ class Fatigue_detecting:
                     if self.hCOUNTER >= self.NOD_AR_CONSEC_FRAMES:
                         self.hTOTAL += 1
                     self.hCOUNTER = 0
-
+                if self.score >= 30 and self.score <= 55:
+                    cv2.putText(frame, "mid fatigue", (10, 120), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 255), 2)
+                if self.score > 55 and self.score <= 75:
+                    cv2.putText(frame, "moderate fatigue", (10, 120), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 255), 2)
+                if self.score > 75:
+                    cv2.putText(frame, "severe fatigue", (10, 120), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 255), 2)
+                print(self.score)
                 # 显示结果
                 cv2.putText(frame, "Blinks: {}".format(self.TOTAL), (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.7,
                             (0, 0, 255), 2)
@@ -210,6 +217,7 @@ class Fatigue_detecting:
                             (0, 0, 255), 2)
                 cv2.putText(frame, "Nods: {}".format(self.hTOTAL), (10, 90), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 255),
                             2)
+                #cv2.putText(frame, "severe fatigue", (350, 200), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 255), 2)
 
             # 显示视频帧
             cv2.imshow("Frame", frame)
@@ -231,7 +239,66 @@ class Fatigue_detecting:
             self.hfrequency = self.hTOTAL / (time.time() / 60)  # 例子：计算每分钟点头次数
             self.yfrequency = self.mTOTAL / (time.time() / 60)  # 例子：计算每分钟打哈欠次数
             self.score = self.frequency + self.hfrequency + self.yfrequency  # 例子：计算疲劳分数
-
+            if self.score >= 100:
+                self.score = 100
+            if self.score <= 0:
+                self.score = 0
+            if self.frequency > 0.47 and self.frequency < 0.61:
+                self.score = self.score + 10
+            if self.frequency > 0.62 and self.frequency < 0.95:
+                self.score = self.score + 15
+            if self.frequency > 0.96:
+                self.score = self.score + 20
+            if self.frequency < 0.47 and self.score >= 0:
+                self.score = self.score - 5
+            if self.yfrequency >= 0.2 and self.yfrequency <= 0.4:
+                self.score = self.score + 10
+            if self.yfrequency > 0.4 and self.yfrequency <= 0.6:
+                self.score = self.score + 15
+            if self.yfrequency > 0.6:
+                self.score = self.score + 20
+            if self.yfrequency < 0.2 and self.score >= 0:
+                self.score = self.score - 10
+            if self.hfrequency >= 0.2 and self.hfrequency <= 0.4:
+                self.score = self.score + 15
+            if self.hfrequency > 0.4 and self.hfrequency <= 0.6:
+                self.score = self.score + 20
+            if self.hfrequency > 0.6:
+                self.score = self.score + 25
+            if self.hfrequency < 0.2 and self.score >= 0:
+                self.score = self.score - 20
+            if self.score >= 100:
+                self.score = 100
+            if self.score <= 0:
+                self.score = 0
+    # def alarm(self, event):
+    #     #while True:
+    #     for i in range(500):
+    #         #print("开始进入休眠")
+    #         time.sleep(3)
+    #         #print("结束休眠，进入新的一轮循环")
+    #         if self.score >= 30 and self.score <= 55:
+    #             self.m_textCtrl3.AppendText(
+    #                 time.strftime('%Y-%m-%d %H:%M ', time.localtime()) + u"警报警报已进入轻度疲劳，请打起精神！！\n准备开始语音播报\n")
+    #             pythoncom.CoInitialize()
+    #             engine = client.Dispatch("SAPI.SpVoice")
+    #             engine.Speak('警报警报，检测到您已进入轻度疲劳，请注意')
+    #             # 语音播报内容
+    #             # self.m_textCtrl3.AppendText(time.strftime('%Y-%m-%d %H:%M ', time.localtime()) + u"警报警报已进入轻度疲劳，请打起精神！！\n准备开始语音播报\n")
+    #         if self.score > 55 and self.score <= 75:
+    #             # 语音播报内容
+    #             self.m_textCtrl3.AppendText(
+    #                 time.strftime('%Y-%m-%d %H:%M ', time.localtime()) + u"警报警报已进入中度疲劳，请尽快打起精神！！！\n准备开始语音播报\n")
+    #             pythoncom.CoInitialize()
+    #             engine = client.Dispatch("SAPI.SpVoice")
+    #             engine.Speak('警报警报，检测到您已进入中度疲劳，请尽快打起精神，否则即将自动报警')
+    #         if self.score > 75:
+    #             # 语音播报内容
+    #             self.m_textCtrl3.AppendText(
+    #                 time.strftime('%Y-%m-%d %H:%M ', time.localtime()) + u"警报警报已进入重度疲劳，请靠边停车，已为您自动报警\n准备开始语音播报\n")
+    #             pythoncom.CoInitialize()
+    #             engine = client.Dispatch("SAPI.SpVoice")
+    #             engine.Speak('警报警报，检测到您已进入重度疲劳，请靠边停车，已为您自动报警')
     def camera_on(self, event):
         """使用多线程，子线程运行后台的程序，主线程更新前台的UI，这样不会互相影响"""
         import _thread
@@ -245,6 +312,7 @@ class Fatigue_detecting:
         self.running = False
         self.cap.release()
         cv2.destroyAllWindows()
+
 
 
 if __name__ == "__main__":
