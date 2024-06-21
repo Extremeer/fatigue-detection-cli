@@ -221,10 +221,59 @@ class Fatigue_detecting:
                             cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 255), 2)
                 cv2.putText(frame, "Score: {}".format(self.score), (10, 120),
                             cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 255), 2)
-
+                if self.score >= 30 and self.score <= 55:
+                    cv2.putText(frame, "mid fatigue", (10, 140), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 255), 2)
+                if self.score > 55 and self.score <= 75:
+                    cv2.putText(frame, "moderate fatigue", (10, 140), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 255), 2)
+                if self.score > 75:
+                    cv2.putText(frame, "severe fatigue", (10, 140), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 255), 2)
+                print(self.score)
                 cv2.imshow("Frame", frame)
                 cv2.waitKey(1)  # 设置适当的等待时间，单位为毫秒
 
+    def count(self, event):
+        t = 0
+        while self.running:
+            # 计算眨眼、打哈欠、点头的频率并更新疲劳分数
+            # (这部分实现依赖于具体需求)
+            time.sleep(1)  # 暂停1秒钟，模拟实际计算的时间间隔
+            t += 1
+            self.frequency = self.TOTAL / (t / 60)  # 例子：计算每分钟眨眼次数
+            self.hfrequency = self.hTOTAL / (t / 60)  # 例子：计算每分钟点头次数
+            self.yfrequency = self.mTOTAL / (t / 60)  # 例子：计算每分钟打哈欠次数
+            self.score = self.frequency + self.hfrequency + self.yfrequency  # 例子：计算疲劳分数
+            if self.score >= 100:
+                self.score = 100
+            if self.score <= 0:
+                self.score = 0
+            if self.frequency > 47 and self.frequency < 61:
+                self.score = self.score + 10
+            if self.frequency > 62 and self.frequency < 95:
+                self.score = self.score + 15
+            if self.frequency > 96:
+                self.score = self.score + 20
+            if self.frequency < 47 and self.score >= 0:
+                self.score = self.score - 5
+            if self.yfrequency >= 2 and self.yfrequency <= 4:
+                self.score = self.score + 10
+            if self.yfrequency > 4 and self.yfrequency <= 6:
+                self.score = self.score + 15
+            if self.yfrequency > 6:
+                self.score = self.score + 20
+            if self.yfrequency < 2 and self.score >= 0:
+                self.score = self.score - 10
+            if self.hfrequency >= 2 and self.hfrequency <= 4:
+                self.score = self.score + 15
+            if self.hfrequency > 4 and self.hfrequency <= 6:
+                self.score = self.score + 20
+            if self.hfrequency > 6:
+                self.score = self.score + 25
+            if self.hfrequency < 2 and self.score >= 0:
+                self.score = self.score - 20
+            if self.score >= 100:
+                self.score = 100
+            if self.score <= 0:
+                self.score = 0
     def run(self):
         self.running = True
         self._learning_face()

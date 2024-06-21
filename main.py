@@ -20,7 +20,7 @@ class Fatigue_detecting:
         self.OUT_AR_CONSEC_FRAMES_check = 5
         # 闪烁阈值（秒）
         # 眼睛长宽比
-        self.EYE_AR_THRESH = 0.17
+        self.EYE_AR_THRESH = 0.2
         self.EYE_AR_CONSEC_FRAMES = 3
         # 打哈欠长宽比
         self.MAR_THRESH = 0.7
@@ -159,66 +159,68 @@ class Fatigue_detecting:
 
             # 检测面部
             rects = self.detector(gray, 0)
+            if (len(rects) != 0):
+                for rect in rects:
+                    # 获取面部特征点并转换为NumPy数组
+                    shape = self.predictor(gray, rect)
+                    shape = face_utils.shape_to_np(shape)
 
-            for rect in rects:
-                # 获取面部特征点并转换为NumPy数组
-                shape = self.predictor(gray, rect)
-                shape = face_utils.shape_to_np(shape)
+                    # 提取左眼和右眼坐标
+                    leftEye = shape[lStart:lEnd]
+                    rightEye = shape[rStart:rEnd]
+                    leftEAR = self.eye_aspect_ratio(leftEye)
+                    rightEAR = self.eye_aspect_ratio(rightEye)
 
-                # 提取左眼和右眼坐标
-                leftEye = shape[lStart:lEnd]
-                rightEye = shape[rStart:rEnd]
-                leftEAR = self.eye_aspect_ratio(leftEye)
-                rightEAR = self.eye_aspect_ratio(rightEye)
+                    # 计算两个眼睛的平均EAR
+                    ear = (leftEAR + rightEAR) / 2.0
 
-                # 计算两个眼睛的平均EAR
-                ear = (leftEAR + rightEAR) / 2.0
+                    # 计算嘴巴的长宽比
+                    mouth = shape[mStart:mEnd]
+                    mar = self.mouth_aspect_ratio(mouth)
 
-                # 计算嘴巴的长宽比
-                mouth = shape[mStart:mEnd]
-                mar = self.mouth_aspect_ratio(mouth)
+                    # 检查是否满足眨眼阈值
+                    print(ear)
+                    if ear < self.EYE_AR_THRESH:
+                        self.COUNTER += 1
+                    else:
+                        if self.COUNTER >= self.EYE_AR_CONSEC_FRAMES:
+                            self.TOTAL += 1
+                        print("counter is ", self.COUNTER)
+                        self.COUNTER = 0
 
-                # 检查是否满足眨眼阈值
-                print(ear)
-                if ear < self.EYE_AR_THRESH:
-                    self.COUNTER += 1
-                else:
-                    if self.COUNTER >= self.EYE_AR_CONSEC_FRAMES:
-                        self.TOTAL += 1
-                    self.COUNTER = 0
 
-                # 检查是否满足打哈欠阈值
-                if mar > self.MAR_THRESH:
-                    self.mCOUNTER += 1
-                else:
-                    if self.mCOUNTER >= self.MOUTH_AR_CONSEC_FRAMES:
-                        self.mTOTAL += 1
-                    self.mCOUNTER = 0
+                    # 检查是否满足打哈欠阈值
+                    if mar > self.MAR_THRESH:
+                        self.mCOUNTER += 1
+                    else:
+                        if self.mCOUNTER >= self.MOUTH_AR_CONSEC_FRAMES:
+                               self.mTOTAL += 1
+                        self.mCOUNTER = 0
 
-                # 获取头部姿态
-                reprojectdst, euler_angle = self.get_head_pose(shape)
-                har = abs(euler_angle[0, 0])
-                if har > self.HAR_THRESH:
-                    self.hCOUNTER += 1
-                else:
-                    if self.hCOUNTER >= self.NOD_AR_CONSEC_FRAMES:
-                        self.hTOTAL += 1
-                    self.hCOUNTER = 0
-                if self.score >= 30 and self.score <= 55:
-                    cv2.putText(frame, "mid fatigue", (10, 120), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 255), 2)
-                if self.score > 55 and self.score <= 75:
-                    cv2.putText(frame, "moderate fatigue", (10, 120), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 255), 2)
-                if self.score > 75:
-                    cv2.putText(frame, "severe fatigue", (10, 120), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 255), 2)
-                # print(self.score)
-                # 显示结果
-                cv2.putText(frame, "Blinks: {}".format(self.TOTAL), (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.7,
-                            (0, 0, 255), 2)
-                cv2.putText(frame, "Yawns: {}".format(self.mTOTAL), (10, 60), cv2.FONT_HERSHEY_SIMPLEX, 0.7,
-                            (0, 0, 255), 2)
-                cv2.putText(frame, "Nods: {}".format(self.hTOTAL), (10, 90), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 255),
-                            2)
-                # cv2.putText(frame, "severe fatigue", (350, 200), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 255), 2)
+                    # 获取头部姿态
+                    reprojectdst, euler_angle = self.get_head_pose(shape)
+                    har = abs(euler_angle[0, 0])
+                    if har > self.HAR_THRESH:
+                        self.hCOUNTER += 1
+                    else:
+                        if self.hCOUNTER >= self.NOD_AR_CONSEC_FRAMES:
+                            self.hTOTAL += 1
+                        self.hCOUNTER = 0
+                    if self.score >= 30 and self.score <= 55:
+                        cv2.putText(frame, "mid fatigue", (10, 120), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 255), 2)
+                    if self.score > 55 and self.score <= 75:
+                        cv2.putText(frame, "moderate fatigue", (10, 120), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 255), 2)
+                    if self.score > 75:
+                        cv2.putText(frame, "severe fatigue", (10, 120), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 255), 2)
+                    print(self.score)
+                    # 显示结果
+                    cv2.putText(frame, "Blinks: {}".format(self.TOTAL), (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.7,
+                                (0, 0, 255), 2)
+                    cv2.putText(frame, "Yawns: {}".format(self.mTOTAL), (10, 60), cv2.FONT_HERSHEY_SIMPLEX, 0.7,
+                                (0, 0, 255), 2)
+                    cv2.putText(frame, "Nods: {}".format(self.hTOTAL), (10, 90), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 255),
+                                2)
+                    # cv2.putText(frame, "severe fatigue", (350, 200), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 255), 2)
 
             # 显示视频帧
             cv2.imshow("Frame", frame)
