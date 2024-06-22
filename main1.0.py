@@ -15,7 +15,6 @@ frame_queue = queue.Queue()
 # 创建VideoWriter对象
 fps = 30  # 设置帧率
 frame_width, frame_height = 640, 480  # 设置帧的宽度和高度
-out = cv2.VideoWriter('output.avi', cv2.VideoWriter_fourcc(*'XVID'), fps, (frame_width, frame_height))
 
 server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
@@ -49,9 +48,6 @@ def receive_frames():
                 image = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
                 print("Get Pic")
 
-                # 写入视频帧
-                out.write(image)
-
                 # 将图像写入队列
                 frame_queue.put(image)
 
@@ -65,8 +61,7 @@ def receive_frames():
         # 关闭客户端socket
         client_socket.close()
 
-    # 关闭VideoWriter对象和服务器socket
-    out.release()
+    # 关闭服务器socket
     server_socket.close()
 
 class Fatigue_detecting:
@@ -271,8 +266,8 @@ class Fatigue_detecting:
                     blink_duration_text = "Last Blink Duration: {:.2f}s".format(self.blink_durations[-1])
                     cv2.putText(frame, blink_duration_text, (10, 150), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 0, 0), 2)
 
-            cv2.imshow("Frame", frame)
-            cv2.waitKey(1)  # 设置适当的等待时间，单位为毫秒
+                cv2.imshow("Frame", frame)
+                cv2.waitKey(1)  # 设置适当的等待时间，单位为毫秒
 
     def count(self, event):
         t = 0
