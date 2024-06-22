@@ -7,6 +7,7 @@ import time
 import dlib
 from imutils import face_utils
 from scipy.spatial import distance as dist
+from collections import deque
 
 # 创建共享队列
 frame_queue = queue.Queue()
@@ -55,7 +56,7 @@ def receive_frames():
                 frame_queue.put(image)
 
                 # 显示解码后的图像
-                cv2.imshow("1", image)
+                #cv2.imshow("1", image)
                 cv2.waitKey(1)  # 设置适当的等待时间，单位为毫秒
 
                 # 清空图像数据，准备接收下一张图片
@@ -70,28 +71,51 @@ def receive_frames():
 
 class Fatigue_detecting:
     def __init__(self):
-        # 初始化参数和变量
+        # 默认为摄像头0
         self.VIDEO_STREAM = 0
-        self.CAMERA_STYLE = False
+        self.CAMERA_STYLE = False  # False未打开摄像头，True摄像头已打开
         self.AR_CONSEC_FRAMES_check = 3
         self.OUT_AR_CONSEC_FRAMES_check = 5
+        # 闪烁阈值（秒）
+        # 眼睛长宽比
         self.EYE_AR_THRESH = 0.2
         self.EYE_AR_CONSEC_FRAMES = 3
-        self.MAR_THRESH = 0.5
+        # 打哈欠长宽比
+        self.MAR_THRESH = 0.7
         self.MOUTH_AR_CONSEC_FRAMES = 3
-        self.HAR_THRESH = 0.3
+        # 瞌睡点头
+        self.HAR_THRESH = 3
         self.NOD_AR_CONSEC_FRAMES = 5
+
+        """计数"""
+        # 初始化帧计数器和眨眼总数
         self.COUNTER = 0
         self.TOTAL = 0
+        self.BCOUNT = 1
+        # 初始化帧计数器和打哈欠总数
         self.mCOUNTER = 0
         self.mTOTAL = 0
+        # 初始化帧计数器和点头总数
         self.hCOUNTER = 0
         self.hTOTAL = 0
+        # 离职时间长度
         self.oCOUNTER = 0
+        # 初始化眨眼频率,点头频率，打哈欠频率
         self.frequency = 0
         self.hfrequency = 0
         self.yfrequency = 0
+        self.bfequnency = 0
+        # 初始化疲劳程度
         self.score = 0
+        self.blink_start_frame = None
+        self.continuous_blink_frames = 0
+        self.blink_durations = []
+        self.blink_durations = deque(maxlen=100)  # 记录最近100次闭眼事件的持续时间和时间戳
+        self.running = True  # 标记是否继续运行
+        self.ONE_MINUTE = 60  # 一分钟的秒数
+        self.start_time = time.time()  # 记录计时开始的时间戳
+        self.FPS = 30  # 设置帧率为30帧每秒
+        """姿态"""
 
         self.object_pts = np.float32([[6.825897, 6.760612, 4.402142],
                                       [1.330353, 7.122144, 6.903745],
@@ -157,9 +181,9 @@ class Fatigue_detecting:
         mar = (A + B) / (2.0 * C)
         return mar
 
-    def _learning_face(self, event):
+    def _learning_face(self):
         self.detector = dlib.get_frontal_face_detector()
-        self.predictor = dlib.shape_predictor('.\model\shape_predictor_68_face_landmarks.dat')
+        self.predictor = dlib.shape_predictor('./model/shape_predictor_68_face_landmarks.dat')
 
         while self.running:
             if not frame_queue.empty():
@@ -181,13 +205,25 @@ class Fatigue_detecting:
                     rightEAR = self.eye_aspect_ratio(rightEye)
                     mar = self.mouth_aspect_ratio(mouth)
                     ear = (leftEAR + rightEAR) / 2.0
+                    print(ear)
 
                     if ear < self.EYE_AR_THRESH:
                         self.COUNTER += 1
+                        if self.blink_start_frame is None:
+                            self.blink_start_frame = self.COUNTER
+
+                        # 计算闭眼时长
+                        blink_frames = self.COUNTER - self.blink_start_frame
+                        blink_duration = blink_frames / self.FPS
+                        self.blink_durations.append(blink_duration)
+                        if blink_duration > 1.2:
+                            self.BCOUNT += 2  # 增加闭眼次数
+
                     else:
                         if self.COUNTER >= self.EYE_AR_CONSEC_FRAMES:
                             self.TOTAL += 1
                         self.COUNTER = 0
+                        self.blink_start_frame = None
 
                     if mar > self.MAR_THRESH:
                         self.mCOUNTER += 1
@@ -213,17 +249,140 @@ class Fatigue_detecting:
                             self.oCOUNTER = 0
                             self.score += 1
 
-                cv2.putText(frame, "Blinks: {}".format(self.TOTAL), (10, 30),
-                            cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 255), 2)
-                cv2.putText(frame, "Yawns: {}".format(self.mTOTAL), (10, 60),
-                            cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 255), 2)
-                cv2.putText(frame, "Nods: {}".format(self.hTOTAL), (10, 90),
-                            cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 255), 2)
-                cv2.putText(frame, "Score: {}".format(self.score), (10, 120),
-                            cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 255), 2)
+                if self.score >= 30 and self.score <= 55:
+                    cv2.putText(frame, "mid fatigue", (10, 120), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 255), 2)
+                if self.score > 55 and self.score <= 75:
+                    cv2.putText(frame, "moderate fatigue", (10, 120), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 255), 2)
+                if self.score > 75:
+                    cv2.putText(frame, "severe fatigue", (10, 120), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 255), 2)
+                    # print("score :",self.score)
+                    # 显示结果
+                cv2.putText(frame, "Blinks: {}".format(self.TOTAL), (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.7,
+                            (0, 0, 255), 2)
+                cv2.putText(frame, "Yawns: {}".format(self.mTOTAL), (10, 60), cv2.FONT_HERSHEY_SIMPLEX, 0.7,
+                            (0, 0, 255), 2)
+                cv2.putText(frame, "Nods: {}".format(self.hTOTAL), (10, 90), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 255),
+                            2)
+                cv2.putText(frame, "scores: {}".format(self.score), (10, 180), cv2.FONT_HERSHEY_SIMPLEX, 0.7,
+                            (0, 0, 255),
+                            2)
+                # cv2.putText(frame, "severe fatigue", (350, 200), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 255), 2)
+                if self.blink_durations:
+                    blink_duration_text = "Last Blink Duration: {:.2f}s".format(self.blink_durations[-1])
+                    cv2.putText(frame, blink_duration_text, (10, 150), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 0, 0), 2)
 
-                cv2.imshow("Frame", frame)
-                cv2.waitKey(1)  # 设置适当的等待时间，单位为毫秒
+            cv2.imshow("Frame", frame)
+            cv2.waitKey(1)  # 设置适当的等待时间，单位为毫秒
+
+    def count(self, event):
+        t = 0
+        bcount = 0
+        while self.running:
+            # 计算眨眼、打哈欠、点头的频率并更新疲劳分数
+            # (这部分实现依赖于具体需求)
+            fBOUNT = self.BCOUNT
+            fTOTAL = self.TOTAL
+            fmTOTAL = self.mTOTAL
+            fhTOTAL = self.hTOTAL
+            time.sleep(5)
+            lBOUNT = self.BCOUNT
+            lTOTAL = self.TOTAL
+            lmTOTAL = self.mTOTAL
+            lhTOTAL = self.hTOTAL
+            # 计算眨眼频率
+            self.frequency = (lTOTAL - fTOTAL) / 5
+            # 计算点头频率
+            self.hfrequency = (lhTOTAL - fhTOTAL) / 5
+            # 计算打哈欠频率
+            self.yfrequency = (lmTOTAL - fmTOTAL) / 5
+            self.bfequnency = (lBOUNT - fBOUNT) / 5
+            if self.score >= 100:
+                self.score = 100
+            if self.score <= 0:
+                self.score = 0
+            # if self.frequency > 0.47 and self.frequency < 0.61:
+            #     self.score = self.score + 10
+            # if self.frequency > 0.62 and self.frequency < 0.95:
+            #     self.score = self.score + 15
+            # if self.frequency > 0.96:
+            #     self.score = self.score + 20
+            # if self.frequency < 0.47 and self.score >= 0:
+            #     self.score = self.score - 5
+            print("b:", self.bfequnency)
+            if self.bfequnency >= 1.5:
+                self.score = self.score + (5 * self.bfequnency)
+            if self.bfequnency <= 1 and self.bfequnency > 0:
+                self.score -= 5
+            if self.yfrequency >= 0.2 and self.yfrequency <= 0.4:
+                self.score = self.score + 10
+            if self.yfrequency > 0.4 and self.yfrequency <= 0.6:
+                self.score = self.score + 15
+            if self.yfrequency > 0.6:
+                self.score = self.score + 20
+            if self.yfrequency < 0.2 and self.score >= 0:
+                self.score = self.score - 10
+            if self.hfrequency >= 0.2 and self.hfrequency <= 0.4:
+                self.score = self.score + 15
+            if self.hfrequency > 0.4 and self.hfrequency <= 0.6:
+                self.score = self.score + 20
+            if self.hfrequency > 0.6:
+                self.score = self.score + 25
+            if self.hfrequency < 0.2 and self.score >= 0:
+                self.score = self.score - 20
+            if self.score >= 100:
+                self.score = 100
+            if self.score <= 0:
+                self.score = 0
+
+    # def count(self, event):
+    #     for i in range(500):
+    #         # while True:
+    #         fTOTAL = self.TOTAL
+    #         fmTOTAL = self.mTOTAL
+    #         fhTOTAL = self.hTOTAL
+    #         time.sleep(5)
+    #         lTOTAL = self.TOTAL
+    #         lmTOTAL = self.mTOTAL
+    #         lhTOTAL = self.hTOTAL
+    #         # 计算眨眼频率
+    #         self.frequency = (lTOTAL - fTOTAL) / 5
+    #         # 计算点头频率
+    #         self.hfrequency = (lhTOTAL - fhTOTAL) / 5
+    #         # 计算打哈欠频率
+    #         self.yfrequency = (lmTOTAL - fmTOTAL) / 5
+    #
+    #         if self.score >= 100:
+    #             self.score = 100
+    #         if self.score <= 0:
+    #             self.score = 0
+    #         if self.frequency < 0.2and self.frequency > 0:
+    #             self.score = self.score + 10
+    #         if self.frequency > 0.15and self.frequency >0:
+    #             self.score = self.score + 15
+    #         if self.frequency < 0.1:
+    #             self.score = self.score + 20
+    #         if self.frequency > 0.33 and self.score >= 0:
+    #             self.score = self.score - 5
+    #         if self.yfrequency >= 0.2 and self.yfrequency <= 0.4:
+    #             self.score = self.score + 10
+    #         if self.yfrequency > 0.4 and self.yfrequency <= 0.6:
+    #             self.score = self.score + 15
+    #         if self.yfrequency > 0.6:
+    #             self.score = self.score + 20
+    #         if self.yfrequency < 0.2 and self.score >= 0:
+    #             self.score = self.score - 10
+    #         if self.hfrequency >= 0.2 and self.hfrequency <= 0.4:
+    #             self.score = self.score + 15
+    #         if self.hfrequency > 0.4 and self.hfrequency <= 0.6:
+    #             self.score = self.score + 20
+    #         if self.hfrequency > 0.6:
+    #             self.score = self.score + 25
+    #         if self.hfrequency < 0.2 and self.score >= 0:
+    #             self.score = self.score - 20
+    #         if self.score >= 100:
+    #             self.score = 100
+    #         if self.score <= 0:
+    #             self.score = 0
 
     def run(self):
         self.running = True
@@ -244,3 +403,4 @@ fatigue_detector_thread.join()
 
 # 释放资源
 cv2.destroyAllWindows()
+

@@ -221,7 +221,7 @@ class Fatigue_detecting:
                             cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 255), 2)
                 cv2.putText(frame, "Score: {}".format(self.score), (10, 120),
                             cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 255), 2)
-                if self.score >= 30 and self.score <= 55:
+                if self.score >= 0 and self.score <= 55:
                     cv2.putText(frame, "mid fatigue", (10, 140), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 255), 2)
                 if self.score > 55 and self.score <= 75:
                     cv2.putText(frame, "moderate fatigue", (10, 140), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 255), 2)
