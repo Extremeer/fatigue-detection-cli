@@ -16,19 +16,23 @@ frame_queue = queue.Queue()
 fps = 30  # 设置帧率
 frame_width, frame_height = 640, 480  # 设置帧的宽度和高度
 
-server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+receive_server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+send_server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
 # 绑定socket到一个可用的端口上
-server_address = ('192.168.200.1', 8888)  # 设置PC端的IP地址和端口号
-server_socket.bind(server_address)
+receive_server_address = ('192.168.200.1', 8888)  # 设置PC端的IP地址和端口号
+receive_server_socket.bind(receive_server_address)
+send_server_address = ('192.168.200.1', 8880)  # 设置PC端的IP地址和端口号
+send_server_socket.bind(send_server_address)
 
 # 监听连接
-server_socket.listen(1)
+receive_server_socket.listen(1)
+send_server_socket.listen(1)
 
 def receive_frames():
     while True:
         # 接受客户端连接
-        client_socket, client_address = server_socket.accept()  # 接收一次消息
+        client_socket, client_address = receive_server_socket.accept()  # 接收一次消息
         print('等待客户端连接...')
         print('客户端已连接:', client_address)
 
@@ -62,7 +66,38 @@ def receive_frames():
         client_socket.close()
 
     # 关闭服务器socket
-    server_socket.close()
+    receive_server_socket.close()
+
+def send_command():
+    while True:
+        # 接受客户端连接
+        client_socket, client_address = send_server_socket.accept()  # 接收一次消息
+        print('8880等待客户端连接...')
+        print('8880客户端已连接:', client_address)
+
+        if 30 <= fatigue_detector.score <= 55:
+            message = "0"
+            client_socket.send(message.encode())
+            time.sleep(15)  # 不同的疲劳度，间隔时间应该不同
+        elif 55 < fatigue_detector.score <= 75:
+            message = "1"
+            client_socket.send(message.encode())
+            time.sleep(15)  # 不同的疲劳度，间隔时间应该不同
+        elif fatigue_detector.score > 75:
+            message = "2"
+            client_socket.send(message.encode())
+            time.sleep(15)  # 不同的疲劳度，间隔时间应该不同
+
+        else: # 测试
+            message = "1"
+            client_socket.send(message.encode())
+            time.sleep(15)  # 不同的疲劳度，间隔时间应该不同
+
+        # 关闭客户端socket
+        client_socket.close()
+
+        # 关闭VideoWriter对象和服务器socket
+    send_server_socket.close()
 
 class Fatigue_detecting:
     def __init__(self):
@@ -383,9 +418,11 @@ class Fatigue_detecting:
         self.running = True
         self._learning_face()
 
-# 创建并启动接收帧的线程
+# 创建并启动接收和帧和发送指令的线程
 receive_thread = threading.Thread(target=receive_frames)
 receive_thread.start()
+send_thread = threading.Thread(target=send_command)
+send_thread.start()
 
 # 创建并启动疲劳检测的实例
 fatigue_detector = Fatigue_detecting()
@@ -394,6 +431,7 @@ fatigue_detector_thread.start()
 
 # 等待线程结束
 receive_thread.join()
+send_thread.join()
 fatigue_detector_thread.join()
 
 # 释放资源
